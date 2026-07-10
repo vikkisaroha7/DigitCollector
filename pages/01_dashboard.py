@@ -1,59 +1,50 @@
+import os
+
+import cv2
 import streamlit as st
 import tensorflow as tf
-import cv2
-import os
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+
+from sheets import get_all_records
+
 
 st.set_page_config(
     page_title="Dashboard",
+    page_icon="🏠",
     layout="wide"
 )
 
-st.title("MNIST Handwritten Digit APP")
+st.title("🏠 AI Deep Learning Dashboard")
 
-# ------------------------------------------------
-# Model Status
-# ------------------------------------------------
 
-model_status = "❌ Not Found"
+# --------------------------------------------------
+# Model status
+# --------------------------------------------------
 
-if os.path.exists("models/digit_model.keras"):
-    model_status = "✅ Loaded"
+model_exists = os.path.exists("models/digit_model.keras")
 
-# ------------------------------------------------
-# Google Sheet Status
-# ------------------------------------------------
+model_status = "✅ Loaded" if model_exists else "❌ Not Found"
+
+
+# --------------------------------------------------
+# Google Sheet status and record count
+# --------------------------------------------------
 
 sheet_status = "❌ Not Connected"
 total_records = 0
 
 try:
-
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive"
-    ]
-
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(
-        "credentials.json",
-        scope
-    )
-
-    client = gspread.authorize(credentials)
-
-    sheet = client.open("Digit Collector").sheet1
-
-    total_records = len(sheet.get_all_records())
-
+    records = get_all_records()
+    total_records = len(records)
     sheet_status = "✅ Connected"
 
-except:
-    pass
+except Exception as error:
+    sheet_status = "❌ Not Connected"
+    st.error(f"Google Sheets connection error: {error}")
 
-# ------------------------------------------------
-# Dashboard Cards
-# ------------------------------------------------
+
+# --------------------------------------------------
+# Dashboard metrics
+# --------------------------------------------------
 
 col1, col2, col3 = st.columns(3)
 
@@ -75,7 +66,6 @@ with col3:
         total_records
     )
 
-st.divider()
 
 col4, col5 = st.columns(2)
 
@@ -91,11 +81,15 @@ with col5:
         cv2.__version__
     )
 
-st.divider()
+
+# --------------------------------------------------
+# Model architecture summary
+# --------------------------------------------------
 
 st.subheader("Current CNN Model")
 
-st.code("""
+st.code(
+    """
 Input (28 x 28 x 1)
 
 ↓
@@ -104,7 +98,7 @@ Conv2D (32 Filters)
 
 ↓
 
-MaxPooling
+MaxPooling2D
 
 ↓
 
@@ -112,7 +106,7 @@ Conv2D (64 Filters)
 
 ↓
 
-MaxPooling
+MaxPooling2D
 
 ↓
 
@@ -124,7 +118,7 @@ Dense (128)
 
 ↓
 
-Dropout
+Dropout (0.5)
 
 ↓
 
@@ -133,4 +127,5 @@ Dense (10)
 ↓
 
 Softmax
-""")
+"""
+)
