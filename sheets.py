@@ -1,9 +1,13 @@
-import gspread
-from google.oauth2.service_account import Credentials
+import os
 from datetime import datetime
 
+import gspread
+import streamlit as st
+from google.oauth2.service_account import Credentials
+
+
 # --------------------------------------------------
-# Google Authentication
+# Google API configuration
 # --------------------------------------------------
 
 SCOPES = [
@@ -11,18 +15,68 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-creds = Credentials.from_service_account_file(
-    "credentials.json",
-    scopes=SCOPES
-)
-
-client = gspread.authorize(creds)
-
-worksheet = client.open("Digit Collector").sheet1
+SHEET_NAME = "Digit Collector"
 
 
 # --------------------------------------------------
-# Save Prediction
+# Create Google credentials
+# --------------------------------------------------
+
+def get_google_credentials():
+    """
+    Use credentials.json locally.
+
+    Use Streamlit Secrets when deployed on
+    Streamlit Community Cloud.
+    """
+
+    if os.path.exists("credentials.json"):
+
+        return Credentials.from_service_account_file(
+            "credentials.json",
+            scopes=SCOPES
+        )
+
+    try:
+        service_account_info = dict(
+            st.secrets["gcp_service_account"]
+        )
+
+        return Credentials.from_service_account_info(
+            service_account_info,
+            scopes=SCOPES
+        )
+
+    except Exception as error:
+        raise RuntimeError(
+            "Google credentials were not found. "
+            "For local use, add credentials.json to the project root. "
+            "For Streamlit Cloud, configure gcp_service_account "
+            "in the app's Secrets settings."
+        ) from error
+
+
+# --------------------------------------------------
+# Connect to Google Sheet
+# --------------------------------------------------
+
+@st.cache_resource
+def get_worksheet():
+    """
+    Create and cache the Google Sheets connection.
+    """
+
+    credentials = get_google_credentials()
+    client = gspread.authorize(credentials)
+
+    return client.open(SHEET_NAME).sheet1
+
+
+worksheet = get_worksheet()
+
+
+# --------------------------------------------------
+# Save prediction data
 # --------------------------------------------------
 
 def save_data(
@@ -33,26 +87,29 @@ def save_data(
     confidence,
     correct
 ):
+    """
+    Save the verified prediction to Google Sheets.
+
+    Expected Google Sheet headers:
+
+    Name
+    Email
+    Predicted
+    Actual
+    Confidence (%)
+    Correct
+    Timestamp
+    """
 
     row = [
-
-        str(name),
-
-        str(email),
-
+        str(name).strip(),
+        str(email).strip(),
         str(int(predicted_digit)),
-
         str(int(actual_digit)),
-
-        f"{float(confidence)*100:.2f}",
-
+        f"{float(confidence) * 100:.2f}",
         str(correct),
-
         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
     ]
-
-    print("Saving :", row)
 
     worksheet.append_row(
         row,
@@ -61,37 +118,14 @@ def save_data(
 
 
 # --------------------------------------------------
-# Duplicate Check
+# Read all prediction records
 # --------------------------------------------------
 
-def digit_already_exists(
-    email,
-    actual_digit
-):
+def get_all_records():
+    """
+    Return all records from Google Sheets.
 
-    records = worksheet.get_all_records()
+    This can be used by the Dashboard and Analytics pages.
+    """
 
-    email = email.strip().lower()
-
-    actual_digit = str(actual_digit)
-
-    for record in records:
-
-        try:
-
-            if (
-
-                str(record["Email"]).strip().lower() == email
-
-                and
-
-                str(record["Actual"]) == actual_digit
-
-            ):
-
-                return True
-
-        except Exception:
-            pass
-
-    return False
+    return worksheet.get_all_records()
