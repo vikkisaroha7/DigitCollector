@@ -2,7 +2,8 @@ import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 
 from predictor import predict_digit
-from sheets import save_data, digit_already_exists
+from sheets import save_data
+
 
 st.set_page_config(
     page_title="Predict Digit",
@@ -10,8 +11,9 @@ st.set_page_config(
     layout="centered"
 )
 
+
 # --------------------------------------------------
-# Session State
+# Session state
 # --------------------------------------------------
 
 if "canvas_key" not in st.session_state:
@@ -35,14 +37,18 @@ if "show_wrong_prediction" not in st.session_state:
 # --------------------------------------------------
 
 st.title("✍️ Predict Handwritten Digit")
-st.caption("Draw one digit from 0 to 9, then confirm or correct the AI prediction.")
+
+st.caption(
+    "Draw one digit from 0 to 9, then confirm or correct the AI prediction."
+)
 
 
 # --------------------------------------------------
-# User Details
+# User details
 # --------------------------------------------------
 
 with st.container(border=True):
+
     st.markdown("#### User Details")
 
     col1, col2 = st.columns(2)
@@ -55,10 +61,11 @@ with st.container(border=True):
 
 
 # --------------------------------------------------
-# Canvas
+# Drawing canvas
 # --------------------------------------------------
 
 with st.container(border=True):
+
     st.markdown("#### Draw Digit")
 
     canvas_result = st_canvas(
@@ -89,12 +96,18 @@ with st.container(border=True):
 
 
 # --------------------------------------------------
-# Clear Canvas
+# Clear canvas
 # --------------------------------------------------
 
 if clear_clicked:
-    number = int(st.session_state.canvas_key.split("_")[1]) + 1
-    st.session_state.canvas_key = f"canvas_{number}"
+
+    current_number = int(
+        st.session_state.canvas_key.split("_")[1]
+    )
+
+    st.session_state.canvas_key = (
+        f"canvas_{current_number + 1}"
+    )
 
     st.session_state.prediction_done = False
     st.session_state.predicted_digit = None
@@ -105,7 +118,7 @@ if clear_clicked:
 
 
 # --------------------------------------------------
-# Predict
+# Predict digit
 # --------------------------------------------------
 
 if predict_clicked:
@@ -122,17 +135,19 @@ if predict_clicked:
         st.error("Please draw a digit.")
         st.stop()
 
-    digit, confidence = predict_digit(canvas_result.image_data)
+    digit, confidence = predict_digit(
+        canvas_result.image_data
+    )
 
     if digit is None:
         st.error("No digit detected.")
         st.stop()
 
     if confidence < 0.90:
-        st.warning("Prediction confidence is too low. Please draw again." "OR"
-                    " confirm whether the prediction is correct."
-                   )
-        
+        st.warning(
+            "The model has low confidence in this prediction. "
+            "Please confirm or correct the result."
+        )
 
     st.session_state.predicted_digit = int(digit)
     st.session_state.confidence = float(confidence)
@@ -141,7 +156,7 @@ if predict_clicked:
 
 
 # --------------------------------------------------
-# Prediction Result
+# Prediction result
 # --------------------------------------------------
 
 if st.session_state.prediction_done:
@@ -150,15 +165,22 @@ if st.session_state.prediction_done:
     confidence = st.session_state.confidence
 
     with st.container(border=True):
+
         st.markdown("#### Prediction Result")
 
         col1, col2 = st.columns(2)
 
         with col1:
-            st.metric("Predicted Digit", predicted_digit)
+            st.metric(
+                "Predicted Digit",
+                predicted_digit
+            )
 
         with col2:
-            st.metric("Confidence", f"{confidence * 100:.2f}%")
+            st.metric(
+                "Confidence",
+                f"{confidence * 100:.2f}%"
+            )
 
         st.progress(confidence)
 
@@ -181,35 +203,43 @@ if st.session_state.prediction_done:
 
         if save_clicked:
 
-        
             save_data(
-                    name,
-                    email,
-                    predicted_digit,
-                    predicted_digit,
-                    confidence,
-                    "Yes"
+                name,
+                email,
+                predicted_digit,
+                predicted_digit,
+                confidence,
+                "Yes"
             )
 
-            st.success("Prediction saved successfully.")
+            st.success(
+                "Prediction saved successfully."
+            )
 
         if wrong_clicked:
             st.session_state.show_wrong_prediction = True
 
 
 # --------------------------------------------------
-# Wrong Prediction Correction
+# Correct wrong prediction
 # --------------------------------------------------
 
-if st.session_state.prediction_done and st.session_state.show_wrong_prediction:
+if (
+    st.session_state.prediction_done
+    and st.session_state.show_wrong_prediction
+):
 
     predicted_digit = st.session_state.predicted_digit
     confidence = st.session_state.confidence
 
     with st.container(border=True):
+
         st.markdown("#### Correction")
 
-        st.warning(f"AI predicted {predicted_digit}. Select the correct digit.")
+        st.warning(
+            f"AI predicted {predicted_digit}. "
+            "Select the correct digit."
+        )
 
         actual_digit = st.selectbox(
             "Correct Digit",
@@ -224,16 +254,15 @@ if st.session_state.prediction_done and st.session_state.show_wrong_prediction:
 
         if save_correct_clicked:
 
-            if digit_already_exists(email, actual_digit):
-                st.warning(f"You have already submitted digit {actual_digit}.")
-            else:
-                save_data(
-                    name,
-                    email,
-                    predicted_digit,
-                    actual_digit,
-                    confidence,
-                    "No"
-                )
+            save_data(
+                name,
+                email,
+                predicted_digit,
+                actual_digit,
+                confidence,
+                "No"
+            )
 
-                st.success("Correct digit saved successfully.")
+            st.success(
+                "Correct digit saved successfully."
+            )
