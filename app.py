@@ -1,4 +1,5 @@
 import streamlit as st
+st.write("Available secret sections:", list(st.secrets.keys()))
 
 st.set_page_config(
     page_title="AI Deep Learning Laboratory",
